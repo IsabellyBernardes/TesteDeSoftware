@@ -15,9 +15,13 @@ public class Usuario {
     private String nome;
     private String email;
     private String senha;
+    private String telefone;
+    private String cnpj;
     private String tipo; // "ORGANIZADOR" ou "FORNECEDOR"
     private String cep;
-    private String enderecoCompleto; // Simplificado para não criar outra tabela
+    private String enderecoCompleto;
+    private String numero;
+    private String complemento;
     private String codigoVerificacao;
     private boolean ativo;
 }

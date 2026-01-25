@@ -11,7 +11,6 @@ public class UsuarioService {
     @Autowired
     private UsuarioRepository repository;
 
-    // Para testes, você vai usar @Mock aqui
     @Autowired
     private BuscaCepService buscaCepService;
 
@@ -19,42 +18,94 @@ public class UsuarioService {
     private EnviadorEmailService emailService;
 
     public Usuario cadastrarUsuario(Usuario usuario) {
-        // REGRA 1: Validação básica de campos
-        if (usuario.getNome() == null || usuario.getEmail() == null) {
-            throw new IllegalArgumentException("Dados obrigatórios faltando");
-        }
+        // TC002, TC003, TC004, TC005: Validação de campos obrigatórios gerais
+        if (usuario.getNome() == null || usuario.getNome().isEmpty())
+            throw new IllegalArgumentException("Erro, campo nome precisa ser preenchido");
+        if (usuario.getEmail() == null || usuario.getEmail().isEmpty())
+            throw new IllegalArgumentException("Erro, campo email precisa ser preenchido");
+        if (usuario.getSenha() == null || usuario.getSenha().isEmpty())
+            throw new IllegalArgumentException("Erro, campo senha precisa ser preenchido");
+        if (usuario.getTelefone() == null || usuario.getTelefone().isEmpty())
+            throw new IllegalArgumentException("Erro, campo telefone precisa ser preenchido");
 
-        // REGRA 2: Validação de Senha (min 8, max 20)
-        if (usuario.getSenha().length() < 8 || usuario.getSenha().length() > 20) {
-            throw new IllegalArgumentException("Senha deve ter entre 8 e 20 caracteres");
-        }
-
-        // REGRA 3: Email único
-        if (repository.findByEmail(usuario.getEmail()) != null) {
-            throw new IllegalArgumentException("Email já cadastrado");
-        }
-
-        // REGRA 4: Fornecedor precisa de endereço
+        // Regras específicas para FORNECEDOR (TC006, TC012, TC008, TC009, TC007, TC014)
         if ("FORNECEDOR".equals(usuario.getTipo())) {
-            if (usuario.getCep() == null) {
-                throw new IllegalArgumentException("Fornecedor deve informar CEP");
+
+            // Validação de CNPJ
+            if (usuario.getCnpj() == null || usuario.getCnpj().isEmpty()) {
+                throw new IllegalArgumentException("Erro, campo cnpj precisa ser preenchido");
             }
-            // Simula busca automática
+            if (usuario.getCnpj().length() != 14) {
+                throw new IllegalArgumentException("Erro, campo cnpj precisa ser válido");
+            }
+
+            // Validação de Número do Endereço
+            if (usuario.getNumero() == null || usuario.getNumero().isEmpty()) {
+                throw new IllegalArgumentException("Erro, campo numero_endereco precisa ser preenchido");
+            }
+
+            // Validação de Complemento
+            if (usuario.getComplemento() == null || usuario.getComplemento().isEmpty()) {
+                throw new IllegalArgumentException("Erro, campo complemento precisa ser preenchido");
+            }
+
+            // Validação de CEP
+            if (usuario.getCep() == null || usuario.getCep().isEmpty()) {
+                throw new IllegalArgumentException("Erro, campo cep precisa ser preenchido");
+            }
+
+            // Verifica formato (8 dígitos) e rejeita sequências repetidas como "11111111"
+            if (!usuario.getCep().matches("\\d{8}") || usuario.getCep().matches("(\\d)\\1{7}")) {
+                throw new IllegalArgumentException("Erro, cep inválido, mostrar mascara esperada \"11111-111\"");
+            }
+
+            // Busca endereço e preenche automaticamente
             String logradouro = buscaCepService.buscarPorCep(usuario.getCep());
-            usuario.setEnderecoCompleto(logradouro + ", Nº " + "S/N"); // Simplificação
+            // Monta o endereço completo com os dados manuais
+            usuario.setEnderecoCompleto(logradouro + ", Nº " + usuario.getNumero() + " (" + usuario.getComplemento() + ")");
         }
 
-        // REGRA 5: Gerar código e enviar "email"
+        // TC016: Senha Forte (Mínimo 8, Max 20, Letras e Números)
+        if (!usuario.getSenha().matches("^(?=.*[0-9])(?=.*[a-zA-Z]).{8,20}$")) {
+            throw new IllegalArgumentException("Erro, senha não corresponde com padrão do tipo esperado \"Exemplosenha11#\"");
+        }
+
+        // TC013: Email Duplicado
+        if (repository.findByEmail(usuario.getEmail()) != null) {
+            throw new IllegalArgumentException("Erro, email já está sendo utilizado");
+        }
+
+        // TC001: Sucesso - Gerar código e salvar
         String codigo = String.valueOf((int)(Math.random() * 900000) + 100000);
         usuario.setCodigoVerificacao(codigo);
         usuario.setAtivo(false);
 
-        // Salva
         Usuario salvo = repository.save(usuario);
-
-        // Envia email (apenas log)
         emailService.enviarCodigo(salvo.getEmail(), codigo);
 
         return salvo;
+    }
+
+    // --- NOVO MÉTODO PARA VALIDAR CÓDIGO (TC 010 e TC 011) ---
+    public void validarCadastro(String email, String codigoInformado) {
+        // TC 010: Código não preenchido
+        if (codigoInformado == null || codigoInformado.isEmpty()) {
+            throw new IllegalArgumentException("Erro, campo codigo deve ser preenchido");
+        }
+
+        Usuario usuario = repository.findByEmail(email);
+        if (usuario == null) {
+            throw new IllegalArgumentException("Usuário não encontrado");
+        }
+
+        // TC 011: Código incorreto [cite: 111]
+        if (!usuario.getCodigoVerificacao().equals(codigoInformado)) {
+            throw new IllegalArgumentException("Erro, codigo incorreto, mostrar mascara esperada \"123456\"");
+        }
+
+        // Ativa o usuário se tudo estiver certo
+        usuario.setAtivo(true);
+        usuario.setCodigoVerificacao(null);
+        repository.save(usuario);
     }
 }
