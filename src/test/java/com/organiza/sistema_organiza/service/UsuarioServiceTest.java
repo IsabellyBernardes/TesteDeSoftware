@@ -57,9 +57,27 @@ public class UsuarioServiceTest {
         verify(emailService, times(1)).enviarCodigo(anyString(), anyString());
     }
 
-    // =========================================================================
-    // BLOCO DE ESTRESSE: TESTES DE NULO (null) E VAZIO ("")
-    // =========================================================================
+    @Test
+    void tc001_parte2_deveValidarUsuarioComSucesso() {
+    // PASSO 3 DO PDF: "Inserir o código de 6 dígitos recebido por email"
+    String email = "maria.silva@testeunico.com";
+    String codigoCorreto = "123456"; 
+    
+    // Preparação: O usuário já existe no banco, mas está INATIVO (ativo = false)
+    Usuario usuario = criarUsuarioPadrao();
+    usuario.setCodigoVerificacao(codigoCorreto);
+    usuario.setAtivo(false); 
+
+    when(repository.findByEmail(email)).thenReturn(usuario);
+
+    // PASSO 4 DO PDF: "Clicar em Confirmar Cadastro" (Chamada do método)
+    service.validarCadastro(email, codigoCorreto);
+
+    // RESULTADO ESPERADO DO PDF: "Informações armazenadas" (Usuário agora está ATIVO para ir ao Login)
+    assertTrue(usuario.isAtivo()); // O usuário agora está pronto para fazer Login
+    assertNull(usuario.getCodigoVerificacao()); // O código foi consumido
+    verify(repository).save(usuario); // As alterações foram salvas no banco
+    }
 
     // --- TC 002: Nome ---
     @Test
@@ -71,7 +89,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc002_deveFalharQuandoNomeVazio() { // Novo teste de estresse
+    void tc002_deveFalharQuandoNomeVazio() {
         Usuario usuario = criarUsuarioPadrao();
         usuario.setNome("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -88,7 +106,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc003_deveFalharQuandoEmailVazio() { // Novo teste de estresse
+    void tc003_deveFalharQuandoEmailVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setEmail("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -105,7 +123,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc004_deveFalharQuandoSenhaVazia() { // Novo teste de estresse
+    void tc004_deveFalharQuandoSenhaVazia() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setSenha("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -122,7 +140,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc005_deveFalharQuandoTelefoneVazio() { // Novo teste de estresse
+    void tc005_deveFalharQuandoTelefoneVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setTelefone("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -139,7 +157,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc006_deveFalharQuandoCnpjVazio() { // Novo teste de estresse
+    void tc006_deveFalharQuandoCnpjVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setCnpj("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -156,7 +174,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc007_deveFalharQuandoCepVazio() { // Novo teste de estresse
+    void tc007_deveFalharQuandoCepVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setCep("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -173,7 +191,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc008_deveFalharQuandoNumeroVazio() { // Novo teste de estresse
+    void tc008_deveFalharQuandoNumeroVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setNumero("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
@@ -190,16 +208,13 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc009_deveFalharQuandoComplementoVazio() { // Novo teste de estresse
+    void tc009_deveFalharQuandoComplementoVazio() { 
         Usuario usuario = criarUsuarioPadrao();
         usuario.setComplemento("");
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.cadastrarUsuario(usuario));
         assertEquals("Erro, campo complemento precisa ser preenchido", e.getMessage());
     }
 
-    // =========================================================================
-    // OUTRAS REGRAS DE NEGÓCIO (Mantidas)
-    // =========================================================================
 
     @Test
     void tc012_deveFalharQuandoCnpjInvalido() {
@@ -260,7 +275,7 @@ public class UsuarioServiceTest {
     }
 
     @Test
-    void tc010_deveFalharQuandoCodigoVerificacaoVazio() { // Novo teste de estresse
+    void tc010_deveFalharQuandoCodigoVerificacaoVazio() { 
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.validarCadastro("email@teste.com", ""));
         assertEquals("Erro, campo codigo deve ser preenchido", e.getMessage());
     }
@@ -293,21 +308,5 @@ public class UsuarioServiceTest {
 //        assertEquals("Usuário não encontrado", exception.getMessage());
 //    }
 //
-//    @Test
-//    void tc_extra_deveValidarUsuarioComSucesso() {
-//        String email = "maria.silva@testeunico.com";
-//        String codigoCorreto = "123456";
-//
-//        Usuario usuario = criarUsuarioPadrao();
-//        usuario.setCodigoVerificacao(codigoCorreto);
-//        usuario.setAtivo(false);
-//
-//        when(repository.findByEmail(email)).thenReturn(usuario);
-//
-//        service.validarCadastro(email, codigoCorreto);
-//
-//        assertTrue(usuario.isAtivo());
-//        assertNull(usuario.getCodigoVerificacao());
-//        verify(repository).save(usuario);
-//    }
+
 }
