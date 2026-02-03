@@ -70,10 +70,10 @@ public class UsuarioServiceTest {
 
     when(repository.findByEmail(email)).thenReturn(usuario);
 
-    // PASSO 4 DO PDF: "Clicar em Confirmar Cadastro" (Chamada do método)
+    //"Clicar em Confirmar Cadastro" 
     service.validarCadastro(email, codigoCorreto);
 
-    // RESULTADO ESPERADO DO PDF: "Informações armazenadas" (Usuário agora está ATIVO para ir ao Login)
+    // Usuário agora está ATIVO para ir ao Login
     assertTrue(usuario.isAtivo()); // O usuário agora está pronto para fazer Login
     assertNull(usuario.getCodigoVerificacao()); // O código foi consumido
     verify(repository).save(usuario); // As alterações foram salvas no banco
