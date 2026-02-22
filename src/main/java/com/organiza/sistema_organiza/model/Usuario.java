@@ -24,4 +24,7 @@ public class Usuario {
     private String complemento;
     private String codigoVerificacao;
     private boolean ativo;
+    private String codigoLogin2FA;
+    private String metodo2FA; // "EMAIL" ou "SMS"
+    private Long expiracaoCodigo2FA; // timestamp
 }

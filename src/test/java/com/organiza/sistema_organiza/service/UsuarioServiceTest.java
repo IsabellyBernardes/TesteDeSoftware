@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -307,6 +308,212 @@ public class UsuarioServiceTest {
 //
 //        assertEquals("Usuário não encontrado", exception.getMessage());
 //    }
-//
 
+    // ===================== LOGIN 2FA ======================
+
+    // TC_001 - Logar Fornecedor com sucesso via Email (Autenticação de Dois Fatores)
+    @Test
+    void TC_001_LogarFornecedorComSucessoViaEmail() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.iniciarLogin(usuario.getEmail(), usuario.getSenha(), "EMAIL");
+
+        verify(repository).save(usuario);
+        verify(emailService).enviarCodigo(eq(usuario.getEmail()), anyString());
+    }
+
+    // TC_002 - Logar Fornecedor com sucesso via SMS (Autenticação de Dois Fatores)
+    @Test
+    void TC_002_LogarFornecedorComSucessoViaSMS() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.iniciarLogin(usuario.getEmail(), usuario.getSenha(), "SMS");
+
+        verify(repository).save(usuario);
+    }
+
+    // TC_003 - Logar Organizador com sucesso via Email (Autenticação de Dois Fatores)
+    @Test
+    void TC_003_LogarOrganizadorComSucessoViaEmail() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setTipo("ORGANIZADOR");
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.iniciarLogin(usuario.getEmail(), usuario.getSenha(), "EMAIL");
+
+        verify(emailService).enviarCodigo(eq(usuario.getEmail()), anyString());
+    }
+
+    // TC_004 - Logar Organizador com sucesso via SMS (Autenticação de Dois Fatores)
+    @Test
+    void TC_004_LogarOrganizadorComSucessoViaSMS() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setTipo("ORGANIZADOR");
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.iniciarLogin(usuario.getEmail(), usuario.getSenha(), "SMS");
+
+        verify(repository).save(usuario);
+    }
+
+    // TC_005 - Falha ao logar com ambos os campos vazios
+    @Test
+    void TC_005_FalhaCamposVazios() {
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin("", "", "EMAIL"));
+
+        assertEquals("Erro, campos email e senha precisam ser preenchidos", e.getMessage());
+    }
+
+    // TC_006 - Falha ao logar com o campo Senha vazio
+    @Test
+    void TC_006_FalhaSenhaVazia() {
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin("email@teste.com", "", "EMAIL"));
+
+        assertEquals("Erro, campo senha precisa ser preenchido", e.getMessage());
+    }
+
+    // TC_007 - Falha ao logar com email em formato inválido
+    @Test
+    void TC_007_FalhaEmailInvalido() {
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin("emailinvalido", "Senha123", "EMAIL"));
+
+        assertEquals("Erro, formato de email inválido", e.getMessage());
+    }
+
+    // TC_008 - Sucesso na validação com email contendo letras maiúsculas (Normalização)
+    @Test
+    void TC_008_SucessoEmailMaiusculoNormalizado() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail().toLowerCase())).thenReturn(usuario);
+
+        service.iniciarLogin(usuario.getEmail().toUpperCase(), usuario.getSenha(), "EMAIL");
+
+        verify(repository).save(usuario);
+    }
+
+    // TC_009 - Falha ao logar com senha incorreta
+    @Test
+    void TC_009_FalhaSenhaIncorreta() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin(usuario.getEmail(), "SenhaErrada", "EMAIL"));
+
+        assertEquals("Erro, senha incorreta", e.getMessage());
+    }
+
+    // TC_010 - Falha ao logar com email não cadastrado
+    @Test
+    void TC_010_FalhaEmailNaoCadastrado() {
+        when(repository.findByEmail(anyString())).thenReturn(null);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin("naoexiste@teste.com", "Senha123", "EMAIL"));
+
+        assertEquals("Erro, usuário não encontrado", e.getMessage());
+    }
+
+    // TC_011 - Falha ao logar com senha case sensitive incorreta
+    @Test
+    void TC_011_FalhaSenhaCaseSensitive() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setAtivo(true);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.iniciarLogin(usuario.getEmail(), usuario.getSenha().toLowerCase(), "EMAIL"));
+
+        assertEquals("Erro, senha incorreta", e.getMessage());
+    }
+
+    // TC_012 - Falha na Autenticação de Dois Fatores com código de Email incorreto
+    @Test
+    void TC_012_FalhaCodigoEmailIncorreto() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setCodigoLogin2FA("123456");
+        usuario.setExpiracaoCodigo2FA(System.currentTimeMillis() + 300000);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.validarCodigoLogin(usuario.getEmail(), "000000"));
+
+        assertEquals("Erro, código incorreto", e.getMessage());
+    }
+
+    // TC_013 - Falha na Autenticação de Dois Fatores com código de SMS incorreto
+        @Test
+    void TC_013_FalhaCodigoSMSIncorreto() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setCodigoLogin2FA("123456");
+        usuario.setExpiracaoCodigo2FA(System.currentTimeMillis() + 300000);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.validarCodigoLogin(usuario.getEmail(), "000000"));
+
+        assertEquals("Erro, código incorreto", e.getMessage());
+    }
+
+    // TC_014 - Sucesso ao utilizar a funcionalidade "Reenviar código"
+    @Test
+    void TC_014_SucessoReenviarCodigo() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setMetodo2FA("EMAIL");
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.reenviarCodigo(usuario.getEmail());
+
+        verify(repository).save(usuario);
+        verify(emailService).enviarCodigo(eq(usuario.getEmail()), anyString());
+    }
+
+    // TC_015 - Falha na Autenticação de Dois Fatores utilizando um código expirado
+    @Test
+    void TC_015_FalhaCodigoExpirado() {
+        Usuario usuario = criarUsuarioPadrao();
+        usuario.setCodigoLogin2FA("123456");
+        usuario.setExpiracaoCodigo2FA(System.currentTimeMillis() - 1000);
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        Exception e = assertThrows(IllegalArgumentException.class,
+                () -> service.validarCodigoLogin(usuario.getEmail(), "123456"));
+
+        assertEquals("Erro, código expirado", e.getMessage());
+    }
+
+    // TC_016 - Sucesso ao trocar o método de Autenticação de Dois Fatores
+    @Test
+    void TC_016_SucessoTrocarMetodo2FA() {
+        Usuario usuario = criarUsuarioPadrao();
+
+        when(repository.findByEmail(usuario.getEmail())).thenReturn(usuario);
+
+        service.trocarMetodo2FA(usuario.getEmail(), "SMS");
+
+        assertEquals("SMS", usuario.getMetodo2FA());
+        verify(repository).save(usuario);
+    }
 }

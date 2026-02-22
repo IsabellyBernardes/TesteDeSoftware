@@ -108,4 +108,115 @@ public class UsuarioService {
         usuario.setCodigoVerificacao(null);
         repository.save(usuario);
     }
+    // --- LOGIN - ETAPA 1 (Email + Senha + Geração do Código 2FA) ---
+    public void iniciarLogin(String email, String senha, String metodo) {
+
+        // TC_005 - Falha ao logar com ambos os campos vazios
+        if ((email == null || email.isEmpty()) && (senha == null || senha.isEmpty()))
+            throw new IllegalArgumentException("Erro, campos email e senha precisam ser preenchidos");
+
+        // TC_006 - Falha ao logar com senha vazia
+        if (senha == null || senha.isEmpty())
+            throw new IllegalArgumentException("Erro, campo senha precisa ser preenchido");
+
+        // TC_007 - Falha ao logar com email em formato inválido
+        if (email == null || !email.matches("^[A-Za-z0-9+_.-]+@(.+)$"))
+            throw new IllegalArgumentException("Erro, formato de email inválido");
+
+        // TC_008 - Normalização de email (letras maiúsculas)
+        email = email.toLowerCase();
+
+        Usuario usuario = repository.findByEmail(email);
+
+        // TC_010 - Email não cadastrado
+        if (usuario == null)
+            throw new IllegalArgumentException("Erro, usuário não encontrado");
+
+        // TC_009 - Senha incorreta
+        if (!usuario.getSenha().equals(senha))
+            throw new IllegalArgumentException("Erro, senha incorreta");
+
+        // TC_011 - Senha case sensitive (já atendido pelo equals)
+        // (não precisa código extra, equals já diferencia maiúsculas/minúsculas)
+
+        if (!usuario.isAtivo())
+            throw new IllegalArgumentException("Erro, usuário não está ativo");
+
+        // TC_001, TC_002, TC_003, TC_004
+        // Geração do código para autenticação de dois fatores
+        String codigo = String.valueOf((int)(Math.random() * 900000) + 100000);
+
+        usuario.setCodigoLogin2FA(codigo);
+        usuario.setMetodo2FA(metodo);
+        usuario.setExpiracaoCodigo2FA(System.currentTimeMillis() + 300000); // 5 minutos
+
+        repository.save(usuario);
+
+        if ("EMAIL".equals(metodo)) {
+            emailService.enviarCodigo(usuario.getEmail(), codigo);
+        } else if ("SMS".equals(metodo)) {
+            // Simulação envio SMS
+        }
+    }
+        // --- LOGIN - ETAPA 2 (Validação do Código 2FA) ---
+    public void validarCodigoLogin(String email, String codigoInformado) {
+
+        Usuario usuario = repository.findByEmail(email.toLowerCase());
+
+        if (usuario == null)
+            throw new IllegalArgumentException("Usuário não encontrado");
+
+        // TC_015 - Código expirado
+        if (usuario.getExpiracaoCodigo2FA() == null ||
+            System.currentTimeMillis() > usuario.getExpiracaoCodigo2FA()) {
+            throw new IllegalArgumentException("Erro, código expirado");
+        }
+
+        // TC_012 - Código de Email incorreto
+        // TC_013 - Código de SMS incorreto
+        if (usuario.getCodigoLogin2FA() == null ||
+            !usuario.getCodigoLogin2FA().equals(codigoInformado)) {
+            throw new IllegalArgumentException("Erro, código incorreto");
+        }
+
+        usuario.setCodigoLogin2FA(null);
+        usuario.setExpiracaoCodigo2FA(null);
+
+        repository.save(usuario);
+    }
+        // --- TC_014 - Sucesso ao utilizar "Reenviar código" ---
+    public void reenviarCodigo(String email) {
+
+        Usuario usuario = repository.findByEmail(email.toLowerCase());
+
+        if (usuario == null)
+            throw new IllegalArgumentException("Usuário não encontrado");
+
+        String novoCodigo = String.valueOf((int)(Math.random() * 900000) + 100000);
+
+        usuario.setCodigoLogin2FA(novoCodigo);
+        usuario.setExpiracaoCodigo2FA(System.currentTimeMillis() + 300000);
+
+        repository.save(usuario);
+
+        if ("EMAIL".equals(usuario.getMetodo2FA())) {
+            emailService.enviarCodigo(usuario.getEmail(), novoCodigo);
+        } else {
+            // Simular envio SMS
+        }
+    }
+        // --- TC_016 - Sucesso ao trocar método de autenticação ---
+    public void trocarMetodo2FA(String email, String novoMetodo) {
+
+        Usuario usuario = repository.findByEmail(email.toLowerCase());
+
+        if (usuario == null)
+            throw new IllegalArgumentException("Usuário não encontrado");
+        
+        if (!"EMAIL".equals(novoMetodo) && !"SMS".equals(novoMetodo)) {
+            throw new IllegalArgumentException("Método inválido");
+}
+        usuario.setMetodo2FA(novoMetodo);
+        repository.save(usuario);
+    }
 }
