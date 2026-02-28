@@ -108,4 +108,38 @@ public class UsuarioService {
         usuario.setCodigoVerificacao(null);
         repository.save(usuario);
     }
+
+    // --- LÓGICA DE INATIVAÇÃO (TC_017, TC_018, TC_019) ---
+    private int tentativasInativacao = 0;
+
+    public void inativarConta(String email, String codigo, int meses) {
+        Usuario usuario = repository.findByEmail(email);
+        if (usuario == null) throw new IllegalArgumentException("Usuário não encontrado");
+
+        // TC_018 e TC_019: Validação de tentativas 
+        if (!usuario.getCodigoVerificacao().equals(codigo)) {
+            tentativasInativacao++;
+            if (tentativasInativacao >= 3) {
+                tentativasInativacao = 0; // Reseta para próxima vez
+                throw new IllegalStateException("Limite de tentativas excedido. O processo de inativação foi suspenso.");
+            }
+            throw new IllegalArgumentException("Código de verificação incorreto. Tente novamente.");
+        }
+
+        // TC_017: Sucesso na inativação [cite: 6, 16]
+        usuario.setAtivo(false);
+        tentativasInativacao = 0;
+        repository.save(usuario);
+        System.out.println("Conta inativada por " + meses + " meses.");
+    }
+
+    // TC_019.2: Reativação automática ao redefinir senha 
+    public void redefinirSenhaEReativar(String email, String novaSenha) {
+        Usuario usuario = repository.findByEmail(email);
+        if (usuario == null) throw new IllegalArgumentException("Usuário não encontrado");
+
+        usuario.setSenha(novaSenha); // Aqui você aplicaria a regex de senha forte
+        usuario.setAtivo(true);      // Reativa automaticamente 
+        repository.save(usuario);
+    }
 }
